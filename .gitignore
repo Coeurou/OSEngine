@@ -36,3 +36,7 @@
 /OSEngine/Debug
 /OSEngine/OSEngine/x64
 /OSEngine/x64
+/OSEngine/OSEngine/extern/fmt-7.1.2/build
+/OSEngine/OSEngine/extern/fmt-7.1.2/doc
+/OSEngine/OSEngine/extern/fmt-7.1.2/support
+/OSEngine/OSEngine/extern/fmt-7.1.2/test
