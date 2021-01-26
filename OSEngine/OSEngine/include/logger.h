@@ -273,4 +273,9 @@ inline void log_debug(log_category category, string_view format_str,
       std::forward<Args>(args)...);
 }
 
+template<class Number> string to_string(Number n) {
+    static_assert(std::is_arithmetic_v<Number>, "[to_string] template version compatible only with number types");
+    return std::to_string(n);
+}
+
 }  // namespace ose
