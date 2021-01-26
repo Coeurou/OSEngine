@@ -161,11 +161,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="include\kabuto.cpp" />
     <ClCompile Include="src\logger.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\scanner.cpp" />
+    <ClCompile Include="src\token.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\algorithm.h" />
+    <ClInclude Include="include\container.h" />
+    <ClInclude Include="include\kabuto.h" />
     <ClInclude Include="include\logger.h" />
+    <ClInclude Include="include\result.h" />
     <ClInclude Include="include\types.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

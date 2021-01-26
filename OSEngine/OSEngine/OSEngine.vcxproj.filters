@@ -21,12 +21,33 @@
     <ClCompile Include="src\logger.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\scanner.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\token.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="include\kabuto.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\types.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\logger.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\container.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\algorithm.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\kabuto.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\result.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,0 +1,26 @@
+# We'll use defaults from the LLVM style, but with 4 columns indentation.
+BasedOnStyle: Google
+IndentWidth: 4
+
+Language: Cpp
+# Use 100 columns for Cpp.
+ColumnLimit: 120
+AlwaysBreakTemplateDeclarations: MultiLine
+SpaceAfterTemplateKeyword: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterStruct: false
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterUnion: false
+  BeforeElse: true
+  AfterUnion: false
+  AfterUnion: false
+  AfterUnion: false
+  AfterUnion: false
