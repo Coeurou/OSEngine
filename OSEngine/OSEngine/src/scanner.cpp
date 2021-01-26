@@ -11,119 +11,153 @@ namespace ose {
 scanner::scanner(string_view source) : my_source(source) {}
 
 result<u32> scanner::scan(string_view source) {
-    for (auto it = source.begin(); it != source.end(); it++) {
+    my_source = std::move(source);
+
+    error_type err = error_type::no_error;
+
+    auto it = std::begin(my_source);
+    const auto get_chars_until = [&](char c) {
+        const auto str_begin = std::begin(my_source);
+        const auto str_end = std::end(my_source);
+
+        const size_t offset = std::distance(str_begin, it);
+        size_t pos = my_source.find(c, offset);
+        bool found = (pos != string_view::npos);
+
+        if (found) {
+            // we don't want to process the char just found so we move next to it
+            const auto next_char_it = str_begin + pos;
+            it = (next_char_it != str_end) ? next_char_it : std::prev(str_end);
+        }
+        else {
+            pos = my_source.size();
+            it = std::prev(str_end);
+        }
+        return std::make_tuple(offset, pos - offset, found);
+    };
+
+    for (; it != std::end(my_source); it++) {
         char c = *it;
         switch (c) {
+            case ';': {
+                my_tokens.emplace_back(token(token::type::sequence));
+                break;
+            }
             case '<': {
                 my_tokens.emplace_back(token(token::type::redirect_input));
                 break;
             }
             case '>': {
-                if (const auto next = std::next(it); next != source.end() && *next == c) {
-                    it = next;
+                if (auto next = std::next(it); next != std::end(my_source) && *next == *it) {
                     my_tokens.emplace_back(token(token::type::append_output));
+                    it = next;
                 }
                 else {
                     my_tokens.emplace_back(token(token::type::redirect_output));
                 }
                 break;
             }
-            case '&': {
-                if (const auto next = std::next(it); next != source.end() && *next == c) {
-                    it = next;
-                    my_tokens.emplace_back(token(token::type::and_op));
-                }
-                else {
-                    my_tokens.emplace_back(token(token::type::background));
-                }
-                break;
-            }
             case '|': {
-                if (const auto next = std::next(it); next != source.end() && *next == c) {
-                    it = next;
+                if (auto next = std::next(it); next != std::end(my_source) && *next == *it) {
                     my_tokens.emplace_back(token(token::type::or_op));
+                    it = next;
                 }
                 else {
                     my_tokens.emplace_back(token(token::type::pipe));
                 }
                 break;
             }
-            case '\"': {
-                const auto first_quote = static_cast<size_t>(std::distance(source.begin(), it));
-                if (auto next_quote = source.find('\"', first_quote); next_quote != string_view::npos) {
-                    ++next_quote;
-                    it = std::begin(source) + next_quote;
-
-                    my_tokens.emplace_back(
-                        token(token::type::expr, string(source.substr(first_quote, next_quote - first_quote))));
+            case '&': {
+                if (auto next = std::next(it); next != std::end(my_source) && *next == *it) {
+                    my_tokens.emplace_back(token(token::type::and_op));
+                    it = next;
                 }
                 else {
-                    log_error(log_category::system,
-                              "unexpected end of line, cannot close opened quote expression token.");
-                    return error_type::invalid_parameter;
-                }
-                break;
-            }
-            case '{': {
-                const auto first_brace = static_cast<size_t>(std::distance(source.begin(), it));
-                if (auto next_brace = source.find('}', first_brace); next_brace != string_view::npos) {
-                    ++next_brace;
-                    it = std::begin(source) + next_brace;
-
-                    my_tokens.emplace_back(
-                        token(token::type::expr, string(source.substr(first_brace, next_brace - first_brace))));
-                }
-                else {
-                    log_error(log_category::system,
-                              "unexpected end of line, cannot close opened brace expression token.");
-                    return error_type::invalid_parameter;
+                    my_tokens.emplace_back(token(token::type::background));
                 }
                 break;
             }
             case '-': {
-                const auto current = static_cast<size_t>(std::distance(source.begin(), it));
-                if (size_t end_expr = source.find(' ', current);  end_expr != string_view::npos) {
-                    it = std::begin(source) + end_expr;
-                    my_tokens.emplace_back(
-                        token(token::type::expr, string(source.substr(current, end_expr - current))));
+                const auto [offset, count, found] = get_chars_until(' ');
+                my_tokens.emplace_back(token(token::type::expr, string(my_source.substr(offset, count))));
+                break;
+            }
+            case '{': {
+                const auto revert = it;
+                auto [offset, count, found] = get_chars_until('}');
+                if (found) {
+                    // we want to capture closing brace
+                    count++;
+                    my_tokens.emplace_back(token(token::type::expr, string(my_source.substr(offset, count))));
                 }
                 else {
-                    my_tokens.emplace_back(
-                        token(token::type::expr, string(source.substr(current))));
-                    it = std::prev(source.end());
+                    it = revert;
+                    err = error_type::invalid_parameter;
+                    log_error(log_category::system, "[scanner::scan] invalid token : couldn't found closing brace");
                 }
                 break;
             }
+            case '\"': {
+                const auto revert = it;
+                auto [offset, count, found] = get_chars_until('\"');
+                if (found) {
+                    // we don't want to capture opening quote
+                    offset++;
+                    my_tokens.emplace_back(token(token::type::expr, string(my_source.substr(offset, count))));
+                }
+                else {
+                    it = revert;
+                    err = error_type::invalid_parameter;
+                    log_error(log_category::system, "[scanner::scan] invalid token : couldn't found ending quote");
+                }
+                break;
+            }
+            case ' ': {
+                break;
+            }
             default: {
+                const auto offset = std::distance(std::begin(my_source), it);
                 if (std::isalnum(c)) {
-                    const auto end_str = std::find_if(std::next(it), source.end(), [](char ch) {
-                        return std::isalnum(ch) == 0 && ch != '-' && ch != '.' && ch != '_';
-                    });
-
-                    // deduce litteral type (string, u32, float or double)
-                    token::object litteral =
-                        string(source.substr(std::distance(std::begin(source), it), std::distance(it, end_str)));
-                    const string& expr = std::get<string>(litteral);
-                    const char* expr_begin = expr.data();
-                    const char* expr_end = expr.data() + expr.size();
-
-                    if (expr.find('.') != string::npos) {
-                        double litteral_as_double = 0;
-                        if (auto [pf, errf] = std::from_chars(expr_begin, expr_end, litteral_as_double);
-                            errf == std::errc()) {
-                            litteral = litteral_as_double;
+                    const auto [_, count, found] = get_chars_until(' ');
+                    const auto litteral = my_source.substr(offset, count);
+                    const char* expr_begin = litteral.data();
+                    const char* expr_end = litteral.data() + litteral.size();
+                    
+                    token::object lexeme = string(litteral);
+                    if (std::isdigit(litteral[0])) {
+                        if (litteral.find('.') != string_view::npos) {
+                            double d = 0.0;
+                            if (auto [p, errc] = std::from_chars(expr_begin, expr_end, d); errc == std::errc()) {
+                                lexeme = d;
+                            }
+                            else {
+                                float f = 0.f;
+                                if (auto [pf, errf] = std::from_chars(expr_begin, expr_end, d); errf == std::errc()) {
+                                    lexeme = static_cast<double>(f);
+                                }
+                                else {
+                                    err = error_type::invalid_parameter;
+                                    log_error(log_category::system, "[scanner::scan] invalid token : floating number incorrect, pos {}", offset);
+                                }
+                            }
+                        }
+                        else {
+                            u32 i = 0;
+                            if (auto [pu, errc] = std::from_chars(expr_begin, expr_end, i); errc == std::errc()) {
+                                lexeme = i;
+                            }
+                            else {
+                                err = error_type::invalid_parameter;
+                                log_error(log_category::system, "[scanner::scan] invalid token : integral number incorrect, pos {}", offset);
+                            }
                         }
                     }
-                    else {
-                        u32 litteral_as_int = 0;
-                        if (auto [p, err] = std::from_chars(expr_begin, expr_end, litteral_as_int);
-                            err == std::errc()) {
-                            litteral = litteral_as_int;
-                        }
-                    }
-
-                    my_tokens.emplace_back(token(token::type::expr, litteral));
-                    it = (end_str != source.end()) ? end_str : std::prev(source.end());
+                    
+                    my_tokens.emplace_back(token(token::type::expr, lexeme));
+                }
+                else {
+                    err = error_type::invalid_parameter;
+                    log_error(log_category::system, "[scanner::scan] invalid character found {}, pos {}", c, offset);
                 }
                 break;
             }
@@ -132,21 +166,28 @@ result<u32> scanner::scan(string_view source) {
 
     my_tokens.emplace_back(token(token::type::eof));
 
-    // log result
-    {
-        std::stringstream tokens_to_string;
-        tokens_to_string << "[";
-        for (const auto& t : my_tokens) {
-            tokens_to_string << to_string(t) << ", ";
-        }
-        tokens_to_string << "]";
-        log_debug(log_category::system, "tokens scanned: {}\n", tokens_to_string.str());
-    }
-    return result<u32>(EXIT_SUCCESS);
+    log_debug(log_category::system, "tokens scanned: {}\n", to_string(*this));
+    return (err == error_type::no_error) ? result<u32>(EXIT_SUCCESS) : result<u32>(err);
 }
 
 result<u32> scanner::scan() {
     return scan(my_source);
+}
+
+const array<token>& scanner::tokens() const {
+    return my_tokens;
+}
+
+string to_string(const scanner& s) {
+    std::ostringstream stream;
+    stream << '[';
+    for (const auto& t : s.tokens()) {
+        stream << to_string(t) << ", ";
+    }
+    stream.seekp(-2, stream.cur);
+    stream << ']';
+
+    return stream.str();
 }
 
 }  // namespace ose

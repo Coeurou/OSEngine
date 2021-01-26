@@ -16,5 +16,6 @@ int main(int argc, char* argv[]) {
     }
     log_debug(log_category::system, "{}\n", cmd_line);
     scanner scanner(cmd_line);
-    return scanner.scan() ? EXIT_SUCCESS : EXIT_FAILURE;
+    auto res = scanner.scan() ? EXIT_SUCCESS : EXIT_FAILURE;
+    return res;
 }
